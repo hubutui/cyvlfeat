@@ -68,6 +68,9 @@ def vlad(x, means, assignments, unnormalized=False, square_root=False,
     if assignments.shape[1] != K:
         raise ValueError('assignments has an unexpected shape')
 
+    x = np.ascontiguousarray(x)
+    means = np.ascontiguousarray(means)
+    assignments = np.ascontiguousarray(assignments)
     result = cy_vlad(x, means, assignments, np.int32(unnormalized),
                      np.int32(square_root), np.int32(normalize_components),
                      np.int32(normalize_mass),
