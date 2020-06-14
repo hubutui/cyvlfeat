@@ -1,14 +1,51 @@
 from __future__ import division
+import cyvlfeat
 from cyvlfeat.sift.dsift import dsift
 from cyvlfeat.sift.sift import sift
 from cyvlfeat.sift.phow import phow
 import numpy as np
 from numpy.testing import assert_allclose
 from cyvlfeat.test_util import lena
+from skimage.io import load_sift, imread
+from skimage.util import img_as_float32
+import os.path as osp
+from scipy.spatial.distance import cdist
 
 
 img = lena().astype(np.float32)
 half_img = img[:, :256]
+
+
+# helper function just like vl_ubcread
+def ubc_read():
+    sift_path = osp.join(osp.dirname(cyvlfeat.__file__), 'data', 'box.sift')
+    data = load_sift(sift_path)
+    ubc_descriptors = data['data']
+    ubc_frames = np.column_stack([data['row'], data['column'], data['scale'], data['orientation']])
+
+    return ubc_frames.astype(np.float32), ubc_descriptors.astype(np.float32)
+
+def test_ubc_descriptor():
+    img_path = osp.join(osp.dirname(cyvlfeat.__file__), 'data', 'box.pgm')
+    img = imread(img_path)
+    img = img.astype(np.float32)
+    ubc_frames, ubc_descriptors = ubc_read()
+    [frames, descriptors] = sift(img, first_octave=-1, frames=ubc_frames, compute_descriptor=True, float_descriptors=True)
+    distance = cdist(frames, ubc_frames)
+    # tranpose these array so that I could easily convert MATLAB code to numpy
+    distance = distance.transpose()
+    frames = frames.transpose()
+    descriptors = descriptors.transpose()
+    ubc_frames = ubc_frames.transpose()
+    ubc_descriptors = ubc_descriptors.transpose()
+    
+    perm = distance.argmin(axis=0)
+    frames = frames[:, perm]
+    descriptors = descriptors[:, perm]
+    t1 = np.mean(np.sqrt(np.sum((ubc_descriptors - descriptors)**2, axis=0)))
+    t2 = np.mean(np.sqrt(np.sum(ubc_descriptors**2, axis=0)))
+    err = t1 / t2
+    assert err < 0.1
 
 
 def test_phow_float_descriptors():
